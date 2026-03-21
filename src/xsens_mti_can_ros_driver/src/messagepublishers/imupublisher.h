@@ -65,8 +65,8 @@ struct ImuPublisher: public PacketCallback, PublisherHelperFunctions
     void operator()(const XsDataPacket &packet, ros::Time timestamp)
     {
         bool quaternion_available = packet.containsXsQuaternion;
-        bool gyro_available = packet.containsXsAcceleration;
-        bool accel_available = packet.containsXsRateOfTurn;
+        bool accel_available = packet.containsXsAcceleration;
+        bool gyro_available = packet.containsXsRateOfTurn;
 
         geometry_msgs::Quaternion quaternion;
         if (quaternion_available)
