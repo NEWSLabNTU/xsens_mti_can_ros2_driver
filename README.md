@@ -1,84 +1,88 @@
 
-# Xsens MTi CAN ROS Driver
+# Xsens MTi CAN ROS 2 Driver
 
-This code was based on the official ``xsens_ros_mti_driver`` and tested on MTi-680-DK on ubuntu 20.04LTS with ROS Noetic.
-#### Note: the SampleTime, UTC Time needs to be enabled, in order to get the correct sequence of the data packet(To group multiple data types(CAN Frames) into one packet): MT Manager - Device Settings - Output Configuration - CAN mode , select "SampleTime, UTC Time" and other required data, click "Apply"
+ROS 2 Humble port of the original ROS 1 Noetic driver. Tested on MTi-680-DK on Ubuntu 22.04 LTS with ROS 2 Humble. The build files use only Humble-compatible APIs and have also been verified to build cleanly under ROS 2 Jazzy on Ubuntu 24.04.
 
-Here are the recommended Output Configurations and Device Settings:
+#### Note: SampleTime and UTC Time must be enabled at the device so the driver knows where each multi-frame packet starts. In MT Manager → Device Settings → Output Configuration → CAN mode, select "SampleTime, UTC Time" (or whichever frame ID you set as `start_frame_id`) plus the data fields you want, then click "Apply".
+
+Recommended Output Configurations and Device Settings:
 
 ![Alt text](MTi-680-Output_Configuration_CAN_mode.png)
 
 ![Alt text](MTi-680-Device_Settings.png)
 
+## How to Install
 
+Clone the source into a colcon workspace (this repo's top-level `src/` already lays out as one). From the repo root:
 
-## How to Install:
-clone the source file to your ``catkin_ws``, and run the code below:
+```bash
+source /opt/ros/humble/setup.bash
+colcon build --packages-select xsens_mti_can_ros_driver
+source install/setup.bash
 ```
-cd ~/catkin_ws
-catkin_make
-```
-You might need to do ``catkin_make`` two times if you had deleted the ``devel`` and `build` folders, because you will see errors with the custom message `XsStatusWord`
 
-Source the ``/devel/setup.bash`` file inside your catkin workspace
-```
-source ./devel/setup.bash
-```
-or 
+Optionally add the source line to your shell startup:
 
-add it into rules:
+```bash
+echo "source $(pwd)/install/setup.bash" >> ~/.bashrc
 ```
-sudo nano ~/.bashrc
-```
-At the end of the file, add the following line:
-```
-source /[PATH_TO_Your_catkin_ws]/devel/setup.bash
-```
-save the file, exit.
 
-## How to Use:
-open terminal:
-firstly configure the ``can0`` baudrate using the ``setup_can0.sh``:
+## How to Use
+
+Bring up the CAN bus first (default 250 kbps; edit `setup_can0.sh` for 500k/1M):
+
+```bash
+sudo ./src/xsens_mti_can_ros_driver/config/setup_can0.sh
 ```
-sudo ./setup_can0.sh
+
+Then launch the driver:
+
+```bash
+ros2 launch xsens_mti_can_ros_driver xsens_mti_can_node.launch.py
 ```
-Then:
-```
-roslaunch xsens_mti_can_ros_driver xsens_mti_can_node.launch
-```
-or with the 3D display rviz:
-```
-roslaunch xsens_mti_can_ros_driver display.launch
+
+Or with the 3D RViz display:
+
+```bash
+ros2 launch xsens_mti_can_ros_driver display.launch.py
 ```
 
 ## Troubleshooting
-use the below command in terminal to check if there is data:
-```
+
+Verify CAN frames are arriving:
+
+```bash
 candump -ta can0
 ```
 
+List active topics from the running node:
 
-## ROS Topics
+```bash
+ros2 topic list
+ros2 topic echo /imu/data
+```
 
-| topic                    | Message Type                    | Message Contents                                                                                                                              | Data Output Rate<br>(Depending on Model and OutputConfigurations at MT Manager) |
-| ------------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| filter/free_acceleration | geometry_msgs/Vector3Stamped    | free acceleration from filter, which is the acceleration in the local earth coordinate system (L) from which<br>the local gravity is deducted | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| filter/positionlla       | geometry_msgs/Vector3Stamped    | filtered position output in latitude (x), longitude (y) and altitude (z) as Vector3, in WGS84 datum                                           | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| filter/quaternion        | geometry_msgs/QuaternionStamped | quaternion from filter                                                                                                                        | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| filter/twist             | geometry_msgs/TwistStamped      | velocity and angular velocity                                                                                                                 | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| filter/velocity          | geometry_msgs/Vector3Stamped    | filtered velocity output as Vector3                                                                                                           | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| gnss_pose                | geometry_msgs/PoseStamped       | filtered position output in latitude (x), longitude (y) and altitude (z) as Vector3 in WGS84 datum, and quaternion from filter                | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| imu/acceleration         | geometry_msgs/Vector3Stamped    | calibrated acceleration                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| imu/angular_velocity     | geometry_msgs/Vector3Stamped    | calibrated angular velocity                                                                                                                   | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| imu/data                 | sensor_msgs/Imu                 | quaternion, calibrated angular velocity and acceleration                                                                                      | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| imu/dq                   | geometry_msgs/QuaternionStamped | integrated angular velocity from sensor (in quaternion representation)                                                                        | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| imu/dv                   | geometry_msgs/Vector3Stamped    | integrated acceleration from sensor                                                                                                           | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| imu/mag                  | geometry_msgs/Vector3Stamped    | calibrated magnetic field                                                                                                                     | 1-100Hz                                                                         |
-| imu/time_ref             | sensor_msgs/TimeReference       | SampleTimeFine timestamp from device                                                                                                          | depending on packet                                                             |
-| imu/utctime              | sensor_msgs/TimeReference       | UTC Time from the device                                                                                                                      | depending on packet                                                             |
-| pressure                 | sensor_msgs/FluidPressure       | barometric pressure from device                                                                                                               | 1-100Hz                                                                         |
-| status                   | diagnostic_msgs/DiagnosticArray | statusWord, 32bit                                                                                                                             | depending on packet                                                             |
-| temperature              | sensor_msgs/Temperature         | temperature from device                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
-| tf                       | geometry_msgs/TransformStamped  | transformed orientation                                                                                                                       | 1-400Hz(MTi-600 and MTi-100 series), 1-100Hz(MTi-1 series)                      |
+## ROS 2 Topics
 
-Please refer to [MTi Family Reference Manual](https://mtidocs.xsens.com/mti-system-overview) for detailed definition of data. 
+| topic                    | Message Type                          | Message Contents                                                                                                                              | Data Output Rate<br>(Depending on Model and Output Configuration in MT Manager) |
+| ------------------------ | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| filter/free_acceleration | geometry_msgs/msg/Vector3Stamped      | free acceleration from filter (local earth frame, gravity removed)                                                                            | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| filter/positionlla       | geometry_msgs/msg/Vector3Stamped      | filtered lat (x), lon (y), altitude (z) in WGS84                                                                                              | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| filter/quaternion        | geometry_msgs/msg/QuaternionStamped   | quaternion from filter                                                                                                                        | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| filter/twist             | geometry_msgs/msg/TwistStamped        | velocity and angular velocity                                                                                                                 | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| filter/velocity          | geometry_msgs/msg/Vector3Stamped      | filtered velocity output                                                                                                                      | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| gnss_pose                | geometry_msgs/msg/PoseStamped         | filtered position (lat, lon, alt) and quaternion                                                                                              | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| imu/acceleration         | geometry_msgs/msg/Vector3Stamped      | calibrated acceleration                                                                                                                       | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| imu/angular_velocity     | geometry_msgs/msg/Vector3Stamped      | calibrated angular velocity                                                                                                                   | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| imu/data                 | sensor_msgs/msg/Imu                   | quaternion, calibrated angular velocity and acceleration                                                                                      | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| imu/dq                   | geometry_msgs/msg/QuaternionStamped   | integrated angular velocity (quaternion increment)                                                                                            | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| imu/dv                   | geometry_msgs/msg/Vector3Stamped      | integrated acceleration (velocity increment)                                                                                                  | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| imu/mag                  | sensor_msgs/msg/MagneticField         | calibrated magnetic field                                                                                                                     | 1-100Hz                                                                         |
+| imu/time_ref             | sensor_msgs/msg/TimeReference         | SampleTimeFine timestamp from device                                                                                                          | depending on packet                                                             |
+| imu/utctime              | sensor_msgs/msg/TimeReference         | UTC Time from the device                                                                                                                      | depending on packet                                                             |
+| pressure                 | sensor_msgs/msg/FluidPressure         | barometric pressure from device                                                                                                               | 1-100Hz                                                                         |
+| status                   | xsens_mti_can_ros_driver/msg/XsStatusWord | 32-bit status word                                                                                                                        | depending on packet                                                             |
+| temperature              | sensor_msgs/msg/Temperature           | temperature from device                                                                                                                       | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+| /tf                      | tf2_msgs/msg/TFMessage                | transformed orientation                                                                                                                       | 1-400Hz (MTi-600/100), 1-100Hz (MTi-1)                                          |
+
+Refer to the [MTi Family Reference Manual](https://mtidocs.xsens.com/mti-system-overview) for detailed field definitions.

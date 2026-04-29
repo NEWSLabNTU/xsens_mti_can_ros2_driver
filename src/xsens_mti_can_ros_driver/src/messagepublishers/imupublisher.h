@@ -1,150 +1,98 @@
-//  Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
-//  All rights reserved.
-//  
-//  Redistribution and use in source and binary forms, with or without modification,
-//  are permitted provided that the following conditions are met:
-//  
-//  1.	Redistributions of source code must retain the above copyright notice,
-//  	this list of conditions, and the following disclaimer.
-//  
-//  2.	Redistributions in binary form must reproduce the above copyright notice,
-//  	this list of conditions, and the following disclaimer in the documentation
-//  	and/or other materials provided with the distribution.
-//  
-//  3.	Neither the names of the copyright holders nor the names of their contributors
-//  	may be used to endorse or promote products derived from this software without
-//  	specific prior written permission.
-//  
-//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-//  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-//  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-//  THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-//  SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
-//  OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-//  HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR
-//  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-//  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.THE LAWS OF THE NETHERLANDS 
-//  SHALL BE EXCLUSIVELY APPLICABLE AND ANY DISPUTES SHALL BE FINALLY SETTLED UNDER THE RULES 
-//  OF ARBITRATION OF THE INTERNATIONAL CHAMBER OF COMMERCE IN THE HAGUE BY ONE OR MORE 
-//  ARBITRATORS APPOINTED IN ACCORDANCE WITH SAID RULES.
-//  
-
+// Copyright (c) 2003-2023 Movella Technologies B.V. or subsidiaries worldwide.
+// SPDX-License-Identifier: BSD-3-Clause
 #ifndef IMUPUBLISHER_H
 #define IMUPUBLISHER_H
 
-#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/msg/imu.hpp>
+
 #include "packetcallback.h"
 #include "publisherhelperfunctions.h"
 
-
-
-struct ImuPublisher: public PacketCallback, PublisherHelperFunctions
+struct ImuPublisher : public PacketCallback
 {
-
-    ros::Publisher pub;
+    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr pub;
     std::string frame_id = DEFAULT_FRAME_ID;
 
     double orientation_variance[3];
     double linear_acceleration_variance[3];
     double angular_velocity_variance[3];
 
-    ImuPublisher(ros::NodeHandle &node)
-    {   
+    explicit ImuPublisher(rclcpp::Node::SharedPtr node)
+    {
         int pub_queue_size = 5;
-        ros::param::get("~publisher_queue_size", pub_queue_size);
-        pub = node.advertise<sensor_msgs::Imu>("imu/data", pub_queue_size);
-        ros::param::get("~frame_id", frame_id);
+        node->get_parameter("publisher_queue_size", pub_queue_size);
+        pub = node->create_publisher<sensor_msgs::msg::Imu>("imu/data", pub_queue_size);
+        node->get_parameter("frame_id", frame_id);
 
-        // REP 145: Conventions for IMU Sensor Drivers (http://www.ros.org/reps/rep-0145.html)
-        variance_from_stddev_param("~orientation_stddev", orientation_variance);
-        variance_from_stddev_param("~angular_velocity_stddev", angular_velocity_variance);
-        variance_from_stddev_param("~linear_acceleration_stddev", linear_acceleration_variance);
+        // REP 145: Conventions for IMU Sensor Drivers
+        variance_from_stddev_param(node, "orientation_stddev", orientation_variance);
+        variance_from_stddev_param(node, "angular_velocity_stddev", angular_velocity_variance);
+        variance_from_stddev_param(node, "linear_acceleration_stddev", linear_acceleration_variance);
     }
 
-
-    void operator()(const XsDataPacket &packet, ros::Time timestamp)
+    void operator()(const XsDataPacket &packet, rclcpp::Time timestamp) override
     {
         bool quaternion_available = packet.containsXsQuaternion;
         bool accel_available = packet.containsXsAcceleration;
         bool gyro_available = packet.containsXsRateOfTurn;
 
-        geometry_msgs::Quaternion quaternion;
+        if (!(quaternion_available || accel_available || gyro_available))
+        {
+            return;
+        }
+
+        sensor_msgs::msg::Imu msg;
+        msg.header.stamp = timestamp;
+        msg.header.frame_id = frame_id;
+
         if (quaternion_available)
         {
-            XsQuaternion q = packet.quaternion;
-
-            quaternion.w = q.q0;
-            quaternion.x = q.q1;
-            quaternion.y = q.q2;
-            quaternion.z = q.q3;
+            const XsQuaternion &q = packet.quaternion;
+            msg.orientation.w = q.q0;
+            msg.orientation.x = q.q1;
+            msg.orientation.y = q.q2;
+            msg.orientation.z = q.q3;
+            msg.orientation_covariance[0] = orientation_variance[0];
+            msg.orientation_covariance[4] = orientation_variance[1];
+            msg.orientation_covariance[8] = orientation_variance[2];
+        }
+        else
+        {
+            msg.orientation_covariance[0] = -1;
         }
 
-        geometry_msgs::Vector3 gyro;
         if (gyro_available)
         {
-            XsRateOfTurn g = packet.rate_of_turn;
-            gyro.x = g.x;
-            gyro.y = g.y;
-            gyro.z = g.z;
+            const XsRateOfTurn &g = packet.rate_of_turn;
+            msg.angular_velocity.x = g.x;
+            msg.angular_velocity.y = g.y;
+            msg.angular_velocity.z = g.z;
+            msg.angular_velocity_covariance[0] = angular_velocity_variance[0];
+            msg.angular_velocity_covariance[4] = angular_velocity_variance[1];
+            msg.angular_velocity_covariance[8] = angular_velocity_variance[2];
+        }
+        else
+        {
+            msg.angular_velocity_covariance[0] = -1;
         }
 
-        geometry_msgs::Vector3 accel;
         if (accel_available)
         {
-            XsAcceleration a = packet.acceleration;
-            accel.x = a.x;
-            accel.y = a.y;
-            accel.z = a.z;
+            const XsAcceleration &a = packet.acceleration;
+            msg.linear_acceleration.x = a.x;
+            msg.linear_acceleration.y = a.y;
+            msg.linear_acceleration.z = a.z;
+            msg.linear_acceleration_covariance[0] = linear_acceleration_variance[0];
+            msg.linear_acceleration_covariance[4] = linear_acceleration_variance[1];
+            msg.linear_acceleration_covariance[8] = linear_acceleration_variance[2];
         }
-
-        // Imu message, publish if any of the fields is available
-        if (quaternion_available || accel_available || gyro_available)
+        else
         {
-            sensor_msgs::Imu msg;
-
-            msg.header.stamp = timestamp;
-            msg.header.frame_id = frame_id;
-
-            msg.orientation = quaternion;
-            if (quaternion_available)
-            {
-                msg.orientation_covariance[0] = orientation_variance[0];
-                msg.orientation_covariance[4] = orientation_variance[1];
-                msg.orientation_covariance[8] = orientation_variance[2];
-            }
-            else
-            {
-                msg.orientation_covariance[0] = -1; // mark as not available
-            }
-
-            msg.angular_velocity = gyro;
-            if (gyro_available)
-            {
-                msg.angular_velocity_covariance[0] = angular_velocity_variance[0];
-                msg.angular_velocity_covariance[4] = angular_velocity_variance[1];
-                msg.angular_velocity_covariance[8] = angular_velocity_variance[2];
-            }
-            else
-            {
-                msg.angular_velocity_covariance[0] = -1; // mark as not available
-            }
-
-            msg.linear_acceleration = accel;
-            if (accel_available)
-            {
-                msg.linear_acceleration_covariance[0] = linear_acceleration_variance[0];
-                msg.linear_acceleration_covariance[4] = linear_acceleration_variance[1];
-                msg.linear_acceleration_covariance[8] = linear_acceleration_variance[2];
-            }
-            else
-            {
-                msg.linear_acceleration_covariance[0] = -1; // mark as not available
-            }
-
-            pub.publish(msg);
+            msg.linear_acceleration_covariance[0] = -1;
         }
+
+        pub->publish(msg);
     }
- 
 };
 
 #endif

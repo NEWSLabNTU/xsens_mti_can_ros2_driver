@@ -1,47 +1,52 @@
+xsens_mti_can_ros_node:
+  ros__parameters:
+    # SocketCAN interface name. Bring it up via config/setup_can0.sh first.
+    can_interface: "can0"
 
-#By default, the start frame id for each packet is 0x05, unless you change it, 
-#It must be the smallest number in your configuration in the MT Manager - Output Configurations - CAN mode output options
-start_frame_id: 5 #XSENS_SAMPLE_TIME_FRAME_ID
+    # By default the start frame ID is 0x05 (XSENS_SAMPLE_TIME_FRAME_ID).
+    # Set this to the smallest CAN ID configured in MT Manager -> Output
+    # Configuration -> CAN mode (the driver dispatches a packet whenever it
+    # sees this ID, so it MUST be the first frame in every sample group).
+    start_frame_id: 5
 
-publisher_queue_size: 5
+    publisher_queue_size: 5
 
+    # timestamp option:
+    #   "mti_utc"        UTCTime from the MTi (requires GNSS fix)
+    #   "mti_sampletime" UTC anchored at host time, then advanced by SampleTimeFine
+    #   anything else    host clock now()
+    # Make sure "UTC Time" or "Sample Time Fine" is enabled in MT Manager.
+    # If there is no GNSS reception, the MTi will not output 0x07 (UTCTime) over CAN.
+    time_option: "mti_utc"
 
-##timestamp option: 1)mti_utc: UTCTime from MTI; 2) mti_sampletime: UTCTime based on the SampleTimeFine from MTI; 3) other: UTCTime from host device
-## make sure you have selected "UTC Time" or "Sample Time Fine" at MT Manager - Device Settings - Output Configurations.
-## if there is no GNSS reception, the MTi will not output 0x07(UTCTime) over CAN.
-time_option: "mti_utc"
+    # TF transform frame_id (default: imu_link), change for multi-device setups.
+    frame_id: "imu_link"
 
-# TF transform frame_id (default: imu_link), you may want to change it if you use multiple devices
-#frame_id: "imu_link"
+    # Per-topic publisher enable flags.
+    pub_imu: true
+    pub_quaternion: true
+    pub_mag: true
+    pub_angular_velocity: true
+    pub_acceleration: true
+    pub_free_acceleration: true
+    pub_dq: true
+    pub_dv: true
+    pub_sampletime: true
+    pub_temperature: true
+    pub_pressure: true
+    pub_gnss: false
+    pub_twist: true
+    pub_transform: true
+    pub_positionLLA: true
+    pub_velocity: true
+    pub_status: true
+    pub_nmea: true
+    pub_gnsspose: true
+    pub_utctime: true
 
-# Message publishers
-pub_imu: true
-pub_quaternion: true
-pub_mag: true
-pub_angular_velocity: true
-pub_acceleration: true
-pub_free_acceleration: true
-pub_dq: true
-pub_dv: true
-pub_sampletime: true
-pub_temperature: true
-pub_pressure: true
-pub_gnss: false
-pub_twist: true
-pub_transform: true
-pub_positionLLA: true
-pub_velocity: true
-pub_status: true
-pub_nmea: true
-pub_gnsspose: true
-pub_utctime: true
-
-
-
-## Sensor standard deviation [x,y,z] (optional)
-## This value is used to override the covariance matrix in sensor_msgs/Imu and
-## sensor_msgs/MagneticField messages.
-#linear_acceleration_stddev: [0.0, 0.0, 0.0] # [m/s^2]
-#angular_velocity_stddev: [0.0, 0.0, 0.0] # [rad/s]
-#orientation_stddev: [0.0, 0.0, 0.0] # [rad]
-#magnetic_field_stddev: [0.0, 0.0, 0.0] # [Tesla]
+    # Sensor standard deviation [x, y, z] (optional). When set, overrides
+    # the covariance matrix on sensor_msgs/Imu and sensor_msgs/MagneticField.
+    # linear_acceleration_stddev: [0.0, 0.0, 0.0]   # [m/s^2]
+    # angular_velocity_stddev:    [0.0, 0.0, 0.0]   # [rad/s]
+    # orientation_stddev:         [0.0, 0.0, 0.0]   # [rad]
+    # magnetic_field_stddev:      [0.0, 0.0, 0.0]   # [Tesla]

@@ -1,25 +1,23 @@
-#include <ros/ros.h>
+#include <memory>
+
+#include <rclcpp/rclcpp.hpp>
+
 #include "xscaninterface.h"
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "xsens_mti_can_ros_driver");
-    ros::NodeHandle node;
+    rclcpp::init(argc, argv);
 
-    // Create the CAN interface and initialize it
-    XsCanInterface *canInterface = new XsCanInterface();
-    canInterface->initialize();
-    canInterface->registerPublishers(node);
+    auto node = std::make_shared<rclcpp::Node>("xsens_mti_can_ros_node");
 
+    XsCanInterface canInterface(node);
+    canInterface.initialize();
+    canInterface.registerPublishers();
+    canInterface.start();
 
-    // Start processing messages
-    while (ros::ok())
-    {
-        canInterface->spinFor();
-        ros::spinOnce();
-    }
+    rclcpp::spin(node);
 
-    canInterface->closeInterface();
-
+    canInterface.stop();
+    rclcpp::shutdown();
     return 0;
 }

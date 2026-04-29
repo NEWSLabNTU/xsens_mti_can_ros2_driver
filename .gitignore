@@ -1,0 +1,14 @@
+# colcon build artifacts
+build/
+install/
+log/
+
+# Claude Code tooling (kept local, not part of the project)
+CLAUDE.md
+
+# editor / OS noise
+*.swp
+*~
+.vscode/
+.idea/
+.DS_Store

@@ -1,15 +1,17 @@
 #ifndef PACKETCALLBACK_H
 #define PACKETCALLBACK_H
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
+
 #include "xsens_parser.h"
 
-const char* DEFAULT_FRAME_ID = "imu_link";
+inline constexpr const char *DEFAULT_FRAME_ID = "imu_link";
 
 class PacketCallback
 {
-    public:
-        virtual void operator()(const XsDataPacket &, ros::Time) = 0;
+public:
+    virtual ~PacketCallback() = default;
+    virtual void operator()(const XsDataPacket &, rclcpp::Time) = 0;
 };
 
 #endif
