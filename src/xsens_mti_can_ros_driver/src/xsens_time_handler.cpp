@@ -2,6 +2,8 @@
 
 #include <ctime>
 
+#include <rclcpp/rclcpp.hpp>
+
 XsensTimeHandler::XsensTimeHandler(rclcpp::Clock::SharedPtr clock)
     : clock_(std::move(clock)),
       time_option(""),
@@ -62,6 +64,20 @@ rclcpp::Time XsensTimeHandler::convertUtcTimeToRosTime(const XsDataPacket &packe
         return firstUTCTimestamp;
     }
 
+    // Silent fallback to host clock — warn the operator (throttled) since
+    // the requested source is unavailable. Common cause: time_option=mti_utc
+    // but no GNSS fix, so 0x07 frames never arrive.
+    auto logger = rclcpp::get_logger("xsens_time_handler");
+    if (time_option == "mti_utc")
+    {
+        RCLCPP_WARN_THROTTLE(logger, *clock_, 5000,
+                             "time_option=mti_utc but no UTC frame yet — using host clock");
+    }
+    else if (time_option == "mti_sampletime")
+    {
+        RCLCPP_WARN_THROTTLE(logger, *clock_, 5000,
+                             "time_option=mti_sampletime but no SampleTimeFine frame — using host clock");
+    }
     return clock_->now();
 }
 

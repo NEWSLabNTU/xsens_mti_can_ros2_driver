@@ -18,7 +18,7 @@ struct MagneticFieldPublisher : public PacketCallback
     {
         int pub_queue_size = 5;
         node->get_parameter("publisher_queue_size", pub_queue_size);
-        pub = node->create_publisher<sensor_msgs::msg::MagneticField>("imu/mag", pub_queue_size);
+        pub = node->create_publisher<sensor_msgs::msg::MagneticField>("imu/mag", rclcpp::SensorDataQoS().keep_last(pub_queue_size));
         variance_from_stddev_param(node, "magnetic_field_stddev", magnetic_field_variance);
         node->get_parameter("frame_id", frame_id);
     }

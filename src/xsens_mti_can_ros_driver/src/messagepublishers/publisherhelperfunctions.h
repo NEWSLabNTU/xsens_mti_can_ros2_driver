@@ -8,7 +8,11 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-inline void variance_from_stddev_param(const rclcpp::Node::SharedPtr &node,
+// Returns true when stddev was provided and applied; false when the param is
+// empty or wrong-size. Caller uses the return to decide whether to publish a
+// real covariance or the "unknown" sentinel (covariance[0] = -1) per
+// sensor_msgs/Imu conventions.
+inline bool variance_from_stddev_param(const rclcpp::Node::SharedPtr &node,
                                        const std::string &param,
                                        double *variance_out)
 {
@@ -17,17 +21,17 @@ inline void variance_from_stddev_param(const rclcpp::Node::SharedPtr &node,
     {
         auto squared = [](double x) { return x * x; };
         std::transform(stddev.begin(), stddev.end(), variance_out, squared);
+        return true;
     }
-    else
+
+    if (!stddev.empty() && stddev.size() != 3)
     {
-        if (!stddev.empty() && stddev.size() != 3)
-        {
-            RCLCPP_WARN(node->get_logger(),
-                        "Wrong size of param: %s, must be of size 3",
-                        param.c_str());
-        }
-        std::memset(variance_out, 0, 3 * sizeof(double));
+        RCLCPP_WARN(node->get_logger(),
+                    "Wrong size of param: %s, must be of size 3",
+                    param.c_str());
     }
+    std::memset(variance_out, 0, 3 * sizeof(double));
+    return false;
 }
 
 #endif
